@@ -182,29 +182,17 @@
         // Initialize Audio on first click to bypass browser auto-play policies
         function initializeAudioAndStart() {
             if ('speechSynthesis' in window) {
-                let silentUtterance = new SpeechSynthesisUtterance('');
+                // iOS ignores empty utterances, so unlock with a real (muted) word
+                let silentUtterance = new SpeechSynthesisUtterance('yum');
                 silentUtterance.volume = 0;
                 window.speechSynthesis.speak(silentUtterance);
             }
             initGame();
         }
 
-        // Handle start and restart with both click and touchstart for mobile responsiveness
-        function handleStartEvent(e) {
-            e.preventDefault(); // Prevent double-firing on devices that support both
-            initializeAudioAndStart();
-        }
-        
-        function handleRestartEvent(e) {
-            e.preventDefault();
-            initGame();
-        }
-
-        startBtn.addEventListener('click', handleStartEvent);
-        startBtn.addEventListener('touchstart', handleStartEvent, {passive: false});
-        
-        restartBtn.addEventListener('click', handleRestartEvent);
-        restartBtn.addEventListener('touchstart', handleRestartEvent, {passive: false});
+        // Mobile browsers only unlock speech from click/touchend, not touchstart
+        startBtn.addEventListener('click', initializeAudioAndStart);
+        restartBtn.addEventListener('click', initializeAudioAndStart);
 
         function spawnItem() {
             const rand = Math.random();
