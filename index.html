@@ -198,18 +198,39 @@
         });
 
         // Speech Function
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                // Defer so the synchronous speech call can't stall the frame that triggered it
-                setTimeout(() => {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    // Try to sound like Garfield (lazy, lower pitch)
-                    utterance.pitch = 0.4;
-                    utterance.rate = 0.85;
-                    window.speechSynthesis.speak(utterance);
-                }, 0);
+        // A protected line (e.g. Donny Disco Delight) plays to the end: other lines are
+        // skipped while it speaks instead of cancelling it. Normal lines override each other.
+        let protectedSpeechActive = false;
+        let protectedSpeechTimeout;
+
+        function speak(text, { protect = false } = {}) {
+            if (!('speechSynthesis' in window)) return;
+            if (protectedSpeechActive && !protect) return;
+
+            if (protect) {
+                protectedSpeechActive = true;
+                // Safety net in case the browser never fires onend/onerror
+                clearTimeout(protectedSpeechTimeout);
+                protectedSpeechTimeout = setTimeout(() => { protectedSpeechActive = false; }, 5000);
             }
+
+            // Defer so the synchronous speech call can't stall the frame that triggered it
+            setTimeout(() => {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                // Try to sound like Garfield (lazy, lower pitch)
+                utterance.pitch = 0.4;
+                utterance.rate = 0.85;
+                if (protect) {
+                    const done = () => {
+                        clearTimeout(protectedSpeechTimeout);
+                        protectedSpeechActive = false;
+                    };
+                    utterance.onend = done;
+                    utterance.onerror = done;
+                }
+                window.speechSynthesis.speak(utterance);
+            }, 0);
         }
 
         // Initialize Audio on first click to bypass browser auto-play policies
@@ -349,7 +370,7 @@
                         player.discoTimer = DISCO_FRAMES;
                         discoBar.style.width = '100%';
                         discoHud.classList.remove('hidden');
-                        speak("Donny Disco Delight");
+                        speak("Donny Disco Delight", { protect: true });
                     } else if (item.type.startsWith('obstacle') && isProtected()) {
                         // Shield/disco absorbs the hit; the clock is destroyed
                     } else if (item.type.startsWith('obstacle')) {
