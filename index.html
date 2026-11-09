@@ -231,7 +231,7 @@
 
             if (rand < 0.20) {
                 // 20% Lasagna (10 pts)
-                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍝', sprite: 'lasagna', points: 10 });
+                items.push({ x: Math.random() * (canvas.width - 56), y: -50, width: 56, height: 56, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍝', sprite: 'lasagna', points: 10 });
             } else if (rand < 0.505) {
                 // 30.5% Pizza (5 pts)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍕', points: 5 });
