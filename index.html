@@ -84,7 +84,7 @@
         </div>
         <!-- Disco timer -->
         <div id="disco-hud" class="hidden absolute left-0 w-full flex flex-col items-center z-0 pointer-events-none" style="top: 4.5rem">
-            <div class="text-purple-600 text-sm">🪩 Double Points!</div>
+            <div class="text-purple-600 text-sm">🍪 Double Points!</div>
             <div class="w-32 h-2 bg-purple-100 rounded-full overflow-hidden border border-purple-500">
                 <div id="disco-bar" class="h-full bg-pink-400" style="width: 100%"></div>
             </div>
@@ -137,9 +137,12 @@
         const discoHud = document.getElementById('disco-hud');
         const discoBar = document.getElementById('disco-bar');
 
-        // Lasagna sprite (transparent PNG)
-        const lasagnaImg = new Image();
-        lasagnaImg.src = 'lasagna.png';
+        // Item sprites (transparent PNGs); emoji is the fallback until loaded
+        const sprites = {};
+        for (const name of ['lasagna', 'disco']) {
+            sprites[name] = new Image();
+            sprites[name].src = name + '.png';
+        }
 
         // Game State
         let gameState = 'START'; 
@@ -237,7 +240,7 @@
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'coffee', emoji: '☕', points: 0 });
             } else if (rand < 0.55) {
                 // 0.5% Donny Disco Delight (invincible + double points)
-                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'disco', emoji: '🪩', points: 0 });
+                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'disco', emoji: '🍪', sprite: 'disco', points: 0 });
             } else {
                 // 45% Alarm Clock (Vertical Obstacle)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed * 1.3, type: 'obstacle_clock', emoji: '⏰', points: 0 });
@@ -377,9 +380,10 @@
 
             // Draw Items
             for (const item of items) {
-                if (item.sprite === 'lasagna' && lasagnaImg.complete && lasagnaImg.naturalWidth) {
-                    const h = item.width * lasagnaImg.naturalHeight / lasagnaImg.naturalWidth;
-                    ctx.drawImage(lasagnaImg, item.x, item.y + (item.height - h) / 2, item.width, h);
+                const img = item.sprite && sprites[item.sprite];
+                if (img && img.complete && img.naturalWidth) {
+                    const h = item.width * img.naturalHeight / img.naturalWidth;
+                    ctx.drawImage(img, item.x, item.y + (item.height - h) / 2, item.width, h);
                 } else {
                     ctx.font = `${item.width}px Arial`;
                     ctx.textBaseline = 'top';
