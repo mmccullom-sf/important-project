@@ -200,12 +200,15 @@
         // Speech Function
         function speak(text) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                // Try to sound like Garfield (lazy, lower pitch)
-                utterance.pitch = 0.4;
-                utterance.rate = 0.85;
-                window.speechSynthesis.speak(utterance);
+                // Defer so the synchronous speech call can't stall the frame that triggered it
+                setTimeout(() => {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    // Try to sound like Garfield (lazy, lower pitch)
+                    utterance.pitch = 0.4;
+                    utterance.rate = 0.85;
+                    window.speechSynthesis.speak(utterance);
+                }, 0);
             }
         }
 
@@ -232,15 +235,15 @@
             if (rand < 0.20) {
                 // 20% Lasagna (10 pts)
                 items.push({ x: Math.random() * (canvas.width - 56), y: -50, width: 56, height: 56, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍝', sprite: 'lasagna', points: 10 });
-            } else if (rand < 0.505) {
-                // 30.5% Pizza (5 pts)
+            } else if (rand < 0.50) {
+                // 30% Pizza (5 pts)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍕', points: 5 });
-            } else if (rand < 0.545) {
+            } else if (rand < 0.54) {
                 // 4% Coffee (Shield)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'coffee', emoji: '☕', points: 0 });
             } else if (rand < 0.55) {
-                // 0.5% Donny Disco Delight (invincible + double points)
-                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'disco', emoji: '🍪', sprite: 'disco', points: 0 });
+                // 1% Donny Disco Delight (30 pts, invincible + double points)
+                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'disco', emoji: '🍪', sprite: 'disco', points: 30 });
             } else {
                 // 45% Alarm Clock (Vertical Obstacle)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed * 1.3, type: 'obstacle_clock', emoji: '⏰', points: 0 });
@@ -341,6 +344,8 @@
                         shieldHud.classList.remove('hidden');
                         speak("Now I feel safe");
                     } else if (item.type === 'disco') {
+                        score += item.points;
+                        scoreEl.innerText = score;
                         player.discoTimer = DISCO_FRAMES;
                         discoBar.style.width = '100%';
                         discoHud.classList.remove('hidden');
