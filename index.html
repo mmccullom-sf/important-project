@@ -60,8 +60,8 @@
         .hidden {
             display: none !important;
         }
-        /* Speed boost aura effect */
-        .speed-boost {
+        /* Shield active: glowing edge around the play area */
+        .shield-active {
             box-shadow: 0 0 20px 10px rgba(56, 178, 172, 0.5) inset;
             transition: box-shadow 0.2s ease;
         }
@@ -75,6 +75,13 @@
             <div class="text-orange-600 text-xl text-shadow">Score: <span id="score">0</span></div>
             <div class="text-red-600 text-xl text-shadow">Lives: <span id="lives">3</span></div>
         </div>
+        <!-- Shield timer -->
+        <div id="shield-hud" class="hidden absolute top-10 left-0 w-full flex flex-col items-center z-0 pointer-events-none">
+            <div class="text-teal-600 text-sm">🛡️ Shield!</div>
+            <div class="w-32 h-2 bg-teal-100 rounded-full overflow-hidden border border-teal-500">
+                <div id="shield-bar" class="h-full bg-teal-400" style="width: 100%"></div>
+            </div>
+        </div>
 
         <canvas id="gameCanvas" width="400" height="600"></canvas>
 
@@ -84,7 +91,7 @@
             <p class="text-gray-700 text-center mb-6 px-4 text-sm leading-relaxed">
                 🍝 Lasagna = 10 pts <br>
                 🍕 Pizza = 5 pts <br>
-                ☕ Coffee = Speed Boost <br>
+                ☕ Coffee = Shield from Clocks (rare!) <br>
                 ⏰ Avoid Clocks! <br><br>
                 <span>Use Left/Right Arrow Keys or Drag to Move</span>
             </p>
@@ -117,6 +124,12 @@
         const finalScoreEl = document.getElementById('final-score');
         const startBtn = document.getElementById('start-btn');
         const restartBtn = document.getElementById('restart-btn');
+        const shieldHud = document.getElementById('shield-hud');
+        const shieldBar = document.getElementById('shield-bar');
+
+        // Lasagna sprite (transparent PNG)
+        const lasagnaImg = new Image();
+        lasagnaImg.src = 'lasagna.png';
 
         // Game State
         let gameState = 'START'; 
@@ -134,8 +147,9 @@
             height: 70,
             baseSpeed: 6,
             speed: 6,
-            speedBoostTimer: 0
+            shieldTimer: 0
         };
+        const SHIELD_FRAMES = 360; // ~6 seconds
 
         let items = [];
 
@@ -201,12 +215,12 @@
 
             if (rand < 0.20) {
                 // 20% Lasagna (10 pts)
-                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍝', points: 10 });
-            } else if (rand < 0.45) {
-                // 25% Pizza (5 pts)
+                items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍝', sprite: 'lasagna', points: 10 });
+            } else if (rand < 0.53) {
+                // 33% Pizza (5 pts)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'food', emoji: '🍕', points: 5 });
             } else if (rand < 0.55) {
-                // 10% Coffee (Speed Boost)
+                // 2% Coffee (Shield, rare)
                 items.push({ x: Math.random() * (canvas.width - size), y: -50, width: size, height: size, dx: 0, dy: baseSpeed, type: 'coffee', emoji: '☕', points: 0 });
             } else {
                 // 45% Alarm Clock (Vertical Obstacle)
@@ -222,10 +236,11 @@
             difficultyMultiplier = 1;
             items = [];
             player.x = canvas.width / 2 - player.width / 2;
-            player.speedBoostTimer = 0;
+            player.shieldTimer = 0;
             keys.ArrowLeft = false;
             keys.ArrowRight = false;
-            gameContainer.classList.remove('speed-boost');
+            gameContainer.classList.remove('shield-active');
+            shieldHud.classList.add('hidden');
 
             scoreEl.innerText = score;
             livesEl.innerText = lives;
@@ -240,15 +255,14 @@
         function update() {
             if (gameState !== 'PLAYING') return;
 
-            // Handle Speed Boost
-            if (player.speedBoostTimer > 0) {
-                player.speed = player.baseSpeed * 1.8;
-                player.speedBoostTimer--;
-                if (player.speedBoostTimer === 0) {
-                    gameContainer.classList.remove('speed-boost');
+            // Handle Shield
+            if (player.shieldTimer > 0) {
+                player.shieldTimer--;
+                shieldBar.style.width = (player.shieldTimer / SHIELD_FRAMES * 100) + '%';
+                if (player.shieldTimer === 0) {
+                    gameContainer.classList.remove('shield-active');
+                    shieldHud.classList.add('hidden');
                 }
-            } else {
-                player.speed = player.baseSpeed;
             }
 
             // Player Movement
@@ -291,8 +305,13 @@
                         scoreEl.innerText = score;
                         speak("yum");
                     } else if (item.type === 'coffee') {
-                        player.speedBoostTimer = 300; // ~5 seconds of boost
-                        gameContainer.classList.add('speed-boost');
+                        player.shieldTimer = SHIELD_FRAMES;
+                        shieldBar.style.width = '100%';
+                        gameContainer.classList.add('shield-active');
+                        shieldHud.classList.remove('hidden');
+                        speak("Now I feel safe");
+                    } else if (item.type.startsWith('obstacle') && player.shieldTimer > 0) {
+                        // Shield absorbs the hit; the clock is destroyed
                     } else if (item.type.startsWith('obstacle')) {
                         lives--;
                         livesEl.innerText = lives;
@@ -320,13 +339,18 @@
             if (gameState !== 'PLAYING') return;
 
             // Draw Garfield
-            drawGarfield(ctx, player.x, player.y, player.width, player.height, player.speedBoostTimer > 0);
+            drawGarfield(ctx, player.x, player.y, player.width, player.height, player.shieldTimer > 0);
 
             // Draw Items
             for (const item of items) {
-                ctx.font = `${item.width}px Arial`;
-                ctx.textBaseline = 'top';
-                ctx.fillText(item.emoji, item.x, item.y);
+                if (item.sprite === 'lasagna' && lasagnaImg.complete && lasagnaImg.naturalWidth) {
+                    const h = item.width * lasagnaImg.naturalHeight / lasagnaImg.naturalWidth;
+                    ctx.drawImage(lasagnaImg, item.x, item.y + (item.height - h) / 2, item.width, h);
+                } else {
+                    ctx.font = `${item.width}px Arial`;
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(item.emoji, item.x, item.y);
+                }
             }
         }
 
@@ -337,12 +361,15 @@
             const orange = '#FF8C00';
             const pink = '#FF69B4';
 
-            // Draw a subtle aura if boosted
-            if (isBoosted) {
-                ctx.fillStyle = 'rgba(56, 178, 172, 0.3)';
+            // Draw the forcefield bubble if shielded (flickers when about to expire)
+            if (isBoosted && !(player.shieldTimer < 90 && Math.floor(player.shieldTimer / 6) % 2 === 0)) {
+                ctx.fillStyle = 'rgba(56, 178, 172, 0.25)';
+                ctx.strokeStyle = 'rgba(56, 178, 172, 0.9)';
+                ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.ellipse(w/2, h/2, w*0.7, h*0.7, 0, 0, Math.PI * 2);
+                ctx.ellipse(w/2, h/2, w*0.7, h*0.75, 0, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.stroke();
             }
 
             // Body
@@ -400,7 +427,7 @@
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Lazy Eyelids (Wide awake if boosted!)
+            // Lazy Eyelids (Wide awake if shielded!)
             ctx.fillStyle = orange;
             ctx.beginPath();
             if (isBoosted) {
